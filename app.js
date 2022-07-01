@@ -1,6 +1,6 @@
 $(document).ready(function () {
-  MSG_MAXIMUM_FILES = "Maximum files for upload are 6 files. Please decrease your files.";
-  KEY = {
+  const MSG_MAXIMUM_FILES = "Maximum files for upload are 6 files. Please decrease your files.";
+  const KEY = {
     "LAST_NAME": "チャプター► サマリーPALMSレポート",
     "FIRST_NAME": "__EMPTY",
     "ATTENDANCE": "__EMPTY_1",
@@ -12,6 +12,8 @@ $(document).ready(function () {
     "TYFCB": "__EMPTY_15",
     "CEU": "__EMPTY_16",
     "RECOMMENDATION": "__EMPTY_17",
+    "REPORT_DATE": "__EMPTY_9",
+    "REPORT_DATE_NICE": "REPORT_DATE_NICE",
 
     "LAST_NAME_NICE": "LAST_NAME_NICE",
     "FIRST_NAME_NICE": "FIRST_NAME_NICE",
@@ -27,10 +29,10 @@ $(document).ready(function () {
     "RECOMMENDATION_NICE": "RECOMMENDATION_NICE",
   };
 
-  EXCLUDE_DATA = ['ビジター', 'BNI', '合計'];
+  const EXCLUDE_DATA = ['ビジター', 'BNI', '合計'];
 
-  g_xlsxData = [];
-  g_members = {};
+  let g_xlsxData = [];
+  let g_members = {};
 
   $(".file-multiple").change(function (event) {
     reset();
@@ -87,17 +89,32 @@ $(document).ready(function () {
     let tyfcb; // Key: __EMPTY_15
     let ceu; // Key: __EMPTY_16
     let recommendation; // Key: __EMPTY_17
+    let reportDate;
+
+    let dataByDate = {};
 
     // Combine data from all files
     let data = [];
     for (let i = 0, len = g_xlsxData.length; i < len; i++) {
-      file_data = g_xlsxData[i];
+      let fileData = g_xlsxData[i];
+      let _reportDate; // Key: __EMPTY_9
+
+      // Get report date
+      _reportDate = fileData[4];
+      _reportDate = _reportDate[KEY.REPORT_DATE];
+      // _reportDate = extractMonth(_reportDate);
+
+      if (!dataByDate[_reportDate]) {
+        dataByDate[_reportDate] = fileData;
+      }
 
       // We don't need to calculate 3 item: 'ビジター', 'BNI', '合計'
-      for (let j = 0, len2 = file_data.length - 3; j < len2; j++) {
+      for (let j = 0, len2 = fileData.length - 3; j < len2; j++) {
         if (j < 7) continue;
 
-        data.push(file_data[j]);
+        fileData[j][KEY.REPORT_DATE_NICE] = _reportDate;
+
+        data.push(fileData[j]);
       }
     }
 
@@ -107,7 +124,6 @@ $(document).ready(function () {
     for (let i = 0, len = data.length; i < len; i++) {
       let row = data[i];
 
-      // lastName = row[KEY.LAST_NAME];
       lastName = row[Object.keys(row)[0]];
       firstName = row[KEY.FIRST_NAME];
       fullName = `${lastName} ${firstName}`;
@@ -121,13 +137,11 @@ $(document).ready(function () {
       tyfcb = Number(row[KEY.TYFCB]);
       ceu = Number(row[KEY.CEU]);
       recommendation = Number(row[KEY.RECOMMENDATION]);
+      reportDate = row[KEY.REPORT_DATE_NICE];
 
       if (!g_members[fullName]) {
         g_members[fullName] = {};
       } else {
-        console.log('-- exist -- ', fullName);
-        lastName += g_members[fullName][KEY.LAST_NAME_NICE];
-        firstName += g_members[fullName][KEY.FIRST_NAME_NICE];
         attendance += g_members[fullName][KEY.ATTENDANCE_NICE];
         absent += g_members[fullName][KEY.ABSENT_NICE];
         late += g_members[fullName][KEY.LATE_NICE];
@@ -152,9 +166,27 @@ $(document).ready(function () {
       g_members[fullName][KEY.TYFCB_NICE] = tyfcb;
       g_members[fullName][KEY.CEU_NICE] = ceu;
       g_members[fullName][KEY.RECOMMENDATION_NICE] = recommendation;
+
+      if (!g_members[fullName][KEY.REPORT_DATE_NICE]) {
+        g_members[fullName][KEY.REPORT_DATE_NICE] = {};
+      }
+
+      if (!g_members[fullName][KEY.REPORT_DATE_NICE][reportDate]){
+        g_members[fullName][KEY.REPORT_DATE_NICE][reportDate] = {};
+      }
+
+      g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.ATTENDANCE_NICE] = Number(row[KEY.ATTENDANCE]);
+      g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.ABSENT_NICE] = Number(row[KEY.ABSENT]);
+      g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.LATE_NICE] = Number(row[KEY.LATE]);
+      g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.REFERRAL_NICE] = Number(row[KEY.REFERRAL]);
+      g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.REFERRAL2_NICE] = Number(row[KEY.REFERRAL2]);
+      g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.REFERRAL_FINAL] = Number(row[KEY.REFERRAL]) + Number(row[KEY.REFERRAL2]);
+      g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.VISITOR_NICE] = Number(row[KEY.VISITOR]);
+      g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.TYFCB_NICE] = Number(row[KEY.TYFCB]);
+      g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.CEU_NICE] = Number(row[KEY.CEU]);
+      g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.RECOMMENDATION_NICE] = Number(row[KEY.RECOMMENDATION]);
     }
 
-    // console.log(data);
     console.log(g_members);
   }
 
@@ -518,25 +550,39 @@ $(document).ready(function () {
       reader.readAsBinaryString(file);
     };
   }
-
-  $(".saveAsExcel").click(function () {
-    var workbook = XLSX.utils.book_new();
-
-    //var worksheet_data  =  [['hello','world']];
-    //var worksheet = XLSX.utils.aoa_to_sheet(worksheet_data);
-
-    var worksheet_data = document.getElementById("mytable");
-    var worksheet = XLSX.utils.table_to_sheet(worksheet_data);
-
-    workbook.SheetNames.push("Test");
-    workbook.Sheets["Test"] = worksheet;
-
-    exportExcelFile(workbook);
-
-
-  });
 })
 
 function exportExcelFile(workbook, fileName = "bookName") {
   return XLSX.writeFile(workbook, `${fileName}.xlsx`);
+}
+
+/**
+ * Get month from date string
+ * @param   {string}  dateStr  Date string with format YYYY年MM月DD日
+ * @return  {string}           return month with a character of month
+ */
+function extractMonth(dateStr) {
+  const regex = /年\d+月/gm;
+
+  // Alternative syntax using RegExp constructor
+  // const regex = new RegExp('年\d+月', 'gm')
+
+  let m;
+  let month;
+
+  while ((m = regex.exec(dateStr)) !== null) {
+    // This is necessary to avoid infinite loops with zero-width matches
+    if (m.index === regex.lastIndex) {
+        regex.lastIndex++;
+    }
+    
+    // The result can be accessed through the `m`-variable.
+    m.forEach((match, groupIndex) => {
+        month = match;
+    });
+  }
+
+  month = month.replace("年", "");
+
+  return month;
 }
