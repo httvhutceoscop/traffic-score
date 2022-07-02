@@ -1,5 +1,13 @@
+const DEBUG = true;
+
+let g_xlsxData = [];
+let g_members = {};
+let g_monthInReports = [];
+
+let logger;
+
 $(document).ready(function () {
-  const MSG_MAXIMUM_FILES = "Maximum files for upload are 6 files. Please decrease your files.";
+  const MSG_NUMBER_OF_FILES = "You need to upload 6 files for score analysis.";
   const KEY = {
     "LAST_NAME": "チャプター► サマリーPALMSレポート",
     "FIRST_NAME": "__EMPTY",
@@ -28,33 +36,48 @@ $(document).ready(function () {
     "CEU_NICE": "CEU_NICE",
     "RECOMMENDATION_NICE": "RECOMMENDATION_NICE",
   };
-
-  const EXCLUDE_DATA = ['ビジター', 'BNI', '合計'];
-
-  let g_xlsxData = [];
-  let g_members = {};
+  logger = new Logger(DEBUG);
 
   $(".file-multiple").change(function (event) {
     reset();
 
     let files = event.target.files;
-    if (files.length > 6) {
-      showMessage(MSG_MAXIMUM_FILES);
+    if (files.length != 6) {
+      showMessage(MSG_NUMBER_OF_FILES);
+      return;
     }
 
     for (let i = 0, len = files.length; i < len; i++) {
       readFile(files[i]);
     }
 
+    // List all file name and size in screen
+    renderFileNames(files);
+
     // Load data in delay time
     setTimeout(function () {
       handleFileInput();
+      updateExportButtonState(true);
     }, 1000);
   })
 
   $(".export-score").click(function () {
     exportXLSX();
   });
+
+  /**
+   * Render list files with name and size
+   * @param  {array} files list of files
+   */
+  function renderFileNames(files = []) {
+    let li = '';
+
+    for (let i = 0, len = files.length; i < len; i++) {
+      let file = files[i];
+      li += `<li>${file.name}（${bytesToSize(file.size)}）</li>`;
+    }
+    $(".files").html(li);
+  }
 
   function handleFileInput() {
     console.log(g_xlsxData);
@@ -102,7 +125,10 @@ $(document).ready(function () {
       // Get report date
       _reportDate = fileData[4];
       _reportDate = _reportDate[KEY.REPORT_DATE];
-      // _reportDate = extractMonth(_reportDate);
+      
+      if (!g_monthInReports.includes(_reportDate)) {
+        g_monthInReports.push(_reportDate);
+      }
 
       if (!dataByDate[_reportDate]) {
         dataByDate[_reportDate] = fileData;
@@ -213,73 +239,99 @@ $(document).ready(function () {
     const xl2json = new ExcelToJSON();
     xl2json.parseExcel(file);
   }
-
+  
+  /**
+   * Reset all input data when no selection upload action
+   */
   function reset() {
     g_xlsxData = [];
     g_members = [];
+    g_monthInReports = [];
+    $(".files").html();
+    $(".message").hide();
   }
 
   function exportXLSX() {
     // Don't export if empty data
-    // alert("export");
-    ruleOfScore = new RuleOfScore(KEY);
-    score = ruleOfScore.getScore(KEY.ABSENT, 1);
-    rankColor = ruleOfScore.getRankColor(score);
-    console.log(score, rankColor);
 
-    const workbook = XLSX.utils.book_new();
-    const worksheet_data = [
-      ['', '※1　今月なにも活動しない場合の合計数値'],
+    const ruleOfScore = new RuleOfScore(KEY);
+    const worksheetData = [
       [
-        '', 
-        '', 
-        '', 
-        '参加 Attendance', 
-        '欠席 Absent', '', '', '', '', '', '', '', '', 
-        'LATE', '', '', '', '', '', '', '', '', 
-        'INTERNAL REFERRAL', '', '', '', '', '', '', '', '', 
-        'EXTERNAL REFFERAL', '', '', '', '', '', '', '', '', 
-        'REFERRAL', '', 
-        'VISITOR', '', '', '', '', '', '', '', '', 
-        'TYFCB', '', '', '', '', '', '', '', '', 
-        'CEU', '', '', '', '', '', '', '', '', 
-        'RECOMMENDATION', '', '', '', '', '', '', '', '', 
-      ],
+        '', // A
+        '※1　今月なにも活動しない場合の合計数値', // B
+      ], // Row 1
       [
+        '', // A
+        '', // B
+        '', // C
+        '参加', // D
+        '欠席', '', // E F
+        '遅刻', '', // G H
+        'リファーラル', '', // I J
+        'ビジター', '', // K L
+        'TYFCB', '', // M N
+        'CEU', '', // O P
+        '推薦のことば', '', // Q R
+        '', // S
+        '今月何もしなかった場合の点数', // T
+      ], // Row 2
+      [
+        '',
         '', 
         '', 
-        '', 
-        'Meetings 回数', 
-        '12月', '1月', '2月', '3月', '4月', '5月', '', 'Presents', '※1', // absent
-        '12月', '1月', '2月', '3月', '4月', '5月', '', '現在', '※1', // late
-        '12月', '1月', '2月', '3月', '4月', '5月', '', '', '※1', // internal referral
-        '12月', '1月', '2月', '3月', '4月', '5月', '', '', '※1', // external referral
+        '回数', // attendance
+        '現在', '※1', // absent
+        '現在', '※1', // late
         '現在', '※1', // referral
-        '12月', '1月', '2月', '3月', '4月', '5月', '', '現在', '※1', // visitor
-        '12月', '1月', '2月', '3月', '4月', '5月', '', '現在', '※1', // tyfcb
-        '12月', '1月', '2月', '3月', '4月', '5月', '', '現在', '※1', // ceu
-        '12月', '1月', '2月', '3月', '4月', '5月', '', '現在', '※1', // recommendation
-      ],
+        '現在', '※1', // visitor
+        '現在', '※1', // tyfcb
+        '現在', '※1', // ceu
+        '現在', '※1', // recommendation
+        '', 
+      ], // Row 3
       [
         '', 
-        '姓 Last name', 
-        '名 First name', 
-        '', 
-        '', '', '', '', '', '', '', 'Total', '',
-        '', '', '', '', '', '', '', 'Total', '',
-        '', '', '', '', '', '', '', 'Total', '',
-        '', '', '', '', '', '', '', 'Total', '',
-        '', '', 
-        '', '', '', '', '', '', '', 'Total', '',
-        '', '', '', '', '', '', '', 'Total', '',
-        '', '', '', '', '', '', '', 'Total', '',
-        '', '', '', '', '', '', '', 'Total', '',
+        '姓', 
+        '名', 
+        '', // attendance
+        '計', '', // absent
+        '計', '', // late
+        '計', '', // referral
+        '計', '', // visitor
+        '計', '', // tyfcb
+        '計', '', // ceu
+        '計', '', // recommendation
+
+        '', // S
+
+        '欠席', // T
+        '遅刻', // U
+        'リファーラル', // V
+        'ビジター', // W
+        'サンキュー金額', // X
+        'CEU', // Y
+        '推薦の言葉', // Z
+        '点数', // AA
       ],
     ];
 
     for (const fullName in g_members) {
       const member = g_members[fullName];
       let row = [];
+
+      let earliestMonth = member[KEY.REPORT_DATE_NICE];
+
+      const sorted = Object.keys(earliestMonth)
+        .sort()
+        .reduce((accumulator, key) => {
+          accumulator[key] = earliestMonth[key];
+
+          return accumulator;
+        }, {});
+
+      let firstMonth = sorted[Object.keys(sorted)[0]];
+      
+      // console.log(Object.keys(sorted)[0], firstMonth);
 
       row.push(""); // A
       row.push(member[KEY.LAST_NAME_NICE]); // B
@@ -288,106 +340,222 @@ $(document).ready(function () {
       row.push(member[KEY.ATTENDANCE_NICE]); // D
 
       // absent
-      row.push("0"); // E
-      row.push("0"); // F
-      row.push("0"); // G
-      row.push("0"); // H
-      row.push("0"); // I
-      row.push("0"); // J
-      row.push(""); // K
       row.push(member[KEY.ABSENT_NICE]); // L = SUM(E:K)
-      row.push(""); // M = L - E
+      row.push(member[KEY.ABSENT_NICE] - firstMonth[KEY.ABSENT_NICE]); // M = L - E
 
       // late
-      row.push("0"); // N
-      row.push("0"); // O
-      row.push("0"); // P
-      row.push("0"); // Q
-      row.push("0"); // R
-      row.push("0"); // S
-      row.push(""); // T
       row.push(member[KEY.LATE_NICE]); // U = SUM(N:T)
-      row.push(""); // V = U - N
-
-      // internal referral
-      row.push("0"); // W
-      row.push("0"); // X
-      row.push("0"); // Y
-      row.push("0"); // Z
-      row.push("0"); // AA
-      row.push("0"); // AB
-      row.push(""); // AC
-      row.push(member[KEY.REFERRAL_NICE]); // AD = SUM(W:AC)
-      row.push(""); // AE = AD - W
-
-      // external referral
-      row.push("0"); // AF
-      row.push("0"); // AG
-      row.push("0"); // AH
-      row.push("0"); // AI
-      row.push("0"); // AJ
-      row.push("0"); // AK
-      row.push(""); // AL
-      row.push(member[KEY.REFERRAL2_NICE]); // AM = SUM(AF:AL)
-      row.push(""); // AN = AM - AF
+      row.push(member[KEY.LATE_NICE] - firstMonth[KEY.LATE_NICE]); // V = U - N
 
       // referral
-      row.push("0"); // AO = AD + AM
-      row.push("0"); // AP = AE5 + AN5
+      row.push(member[KEY.REFERRAL_FINAL]); // AO = AD + AM
+      row.push(member[KEY.REFERRAL_FINAL] - firstMonth[KEY.REFERRAL_FINAL]); // AP = AE5 - AN5
 
       // visitor
-      row.push("0"); // AQ
-      row.push("0"); // AR
-      row.push("0"); // AS
-      row.push("0"); // AT
-      row.push("0"); // AU
-      row.push("0"); // AV
-      row.push(""); // AW
       row.push(member[KEY.VISITOR_NICE]); // AX = SUM(AQ:AW)
-      row.push(""); // AY = AX - AQ
+      row.push(member[KEY.VISITOR_NICE] - firstMonth[KEY.VISITOR_NICE]); // AY = AX - AQ
 
       // tyfb
-      row.push("0"); // AZ
-      row.push("0"); // BA
-      row.push("0"); // BB
-      row.push("0"); // BC
-      row.push("0"); // BD
-      row.push("0"); // BE
-      row.push(""); // BF
       row.push(member[KEY.TYFCB_NICE]); // BG = SUM(AZ:BF)
-      row.push(""); // BH = BG - AZ
+      row.push(member[KEY.TYFCB_NICE] - firstMonth[KEY.TYFCB_NICE]); // BH = BG - AZ
 
       // CEU
-      row.push("0"); // BI
-      row.push("0"); // BJ
-      row.push("0"); // BK
-      row.push("0"); // BL
-      row.push("0"); // BM
-      row.push("0"); // BN
-      row.push(""); // BO
       row.push(member[KEY.CEU_NICE]); // BP = SUM(BI:BO)
-      row.push(""); // BQ = BP - BI
+      row.push(member[KEY.CEU_NICE] - firstMonth[KEY.CEU_NICE]); // BQ = BP - BI
 
       // recommendation
-      row.push("0"); // BR
-      row.push("0"); // BS
-      row.push("0"); // BT
-      row.push("0"); // BU
-      row.push("0"); // BV
-      row.push("0"); // BW
-      row.push(""); // BX
       row.push(member[KEY.RECOMMENDATION_NICE]); // BY = SUM(BR:BX)
-      row.push(""); // BZ = BY - BR
+      row.push(member[KEY.RECOMMENDATION_NICE] - firstMonth[KEY.RECOMMENDATION_NICE]); // BZ = BY - BR
 
-      worksheet_data.push(row);
+      // Separate column
+      row.push("");
+
+      // Rank of score
+      let absentScore = ruleOfScore.getScore(KEY.ABSENT, member[KEY.ABSENT_NICE]);
+      let lateScore = ruleOfScore.getScore(KEY.LATE, member[KEY.LATE_NICE]);
+      let referralScore = ruleOfScore.getScore(KEY.REFERRAL_FINAL, member[KEY.REFERRAL_FINAL]);
+      let visitorScore = ruleOfScore.getScore(KEY.VISITOR, member[KEY.VISITOR_NICE]);
+      let tyfcbScore = ruleOfScore.getScore(KEY.TYFCB, member[KEY.TYFCB_NICE]);
+      let ceuScore = ruleOfScore.getScore(KEY.CEU, member[KEY.CEU_NICE]);
+      let recommendationScore = ruleOfScore.getScore(KEY.RECOMMENDATION, member[KEY.RECOMMENDATION_NICE]);
+
+      row.push(absentScore);
+      row.push(lateScore);
+      row.push(referralScore);
+      row.push(visitorScore);
+      row.push(tyfcbScore);
+      row.push(ceuScore);
+      row.push(recommendationScore);
+
+      let totalScore = 0;
+      totalScore = absentScore + lateScore + referralScore + visitorScore + tyfcbScore + ceuScore + recommendationScore;
+
+      row.push(totalScore);
+
+      // Add row data into sheet
+      worksheetData.push(row);
     }
 
-    const worksheet = XLSX.utils.aoa_to_sheet(worksheet_data);
+    // Generate worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
-    workbook.SheetNames.push("Test");
-    workbook.Sheets["Test"] = worksheet;
+    // Add merge
+    let mergeAbsent = { s: { r:1, c:4 }, e: { r:1, c:5 } }; 
+    // let mergeAbsent = XLSX.utils.decode_range("E2:F2"); // this is equivalent
+    let mergeLate = XLSX.utils.decode_range("G2:H2");
+    let mergeReferral = XLSX.utils.decode_range("I2:J2");
+    let mergeVisitor = XLSX.utils.decode_range("K2:L2");
+    let mergeTYFCB = XLSX.utils.decode_range("M2:N2");
+    let mergeCEU = XLSX.utils.decode_range("O2:P2");
+    let mergeRecommendation = XLSX.utils.decode_range("Q2:R2");
+    let rankOfScoreTitle = XLSX.utils.decode_range("T2:AA3");
 
-    exportExcelFile(workbook);
+    if(!worksheet['!merges']) {
+      worksheet['!merges'] = [];
+    }
+
+    worksheet['!merges'].push(mergeAbsent);
+    worksheet['!merges'].push(mergeLate);
+    worksheet['!merges'].push(mergeReferral);
+    worksheet['!merges'].push(mergeVisitor);
+    worksheet['!merges'].push(mergeTYFCB);
+    worksheet['!merges'].push(mergeCEU);
+    worksheet['!merges'].push(mergeRecommendation);
+    worksheet['!merges'].push(rankOfScoreTitle);
+
+    // Hint: If your worksheet data is auto generated and you don't know how many rows and columns are get populated 
+    // then you could use the following way to find the number of rows and columns in the worksheet for doing cell width/height formatting.
+    var range = XLSX.utils.decode_range(worksheet['!ref']);
+    var noRows = range.e.r; // No.of rows
+    var noCols = range.e.c; // No. of cols
+    const textCenter = { alignment: { vertical: "center", horizontal: "center" } };
+
+    for (let R = range.s.r; R <= noRows; ++R) {
+      for (let C = range.s.c; C <= noCols; ++C) {
+        let cell_address = { c:C, r:R };
+        let cell_ref = XLSX.utils.encode_cell(cell_address);
+
+        if (!worksheet[cell_ref]) continue;
+
+        worksheet[cell_ref].s = {...textCenter };
+
+        if (R > 3 && C == noCols) {
+          let color = ruleOfScore.getRankColor( worksheet[cell_ref].v);
+          worksheet[cell_ref].s.fill = { fgColor: { rgb: color }, };
+        }
+
+         // Background for column ※1
+        if (R > 3 && (C == 5 || C == 7 || C == 9 || C == 11 || C == 13 || C == 15 || C == 17)) {
+          worksheet[cell_ref].s.fill = { fgColor: { rgb: '8EAADB' }, };
+        }
+
+        // Set border for cell
+        if ((R > 2 && ((C > 0 && C < 18) || (C > 18 && C <= noCols)))
+          || (R > 1 && C > 2 && C < 18)
+        ) {
+          worksheet[cell_ref].s.border = { 
+            top: { style: 'thin', color: '000000' },
+            bottom: { style: 'thin', color: '000000' },
+            left: { style: 'thin', color: '000000' },
+            right: { style: 'thin', color: '000000' },
+          };
+        }
+
+        // Set background color and font style for header
+        if ((R == 3 && C > 0 && C < 18) || (R == 2 && C > 2 && C < 18)) {
+          worksheet[cell_ref].s.fill = { fgColor: { rgb: 'BFBFBF' }, };
+        }
+
+        // Set font bold for header
+        if (R == 3 && C > 0 && C < 18) {
+          worksheet[cell_ref].s.font = { bold: true, sz: '14', };
+        }
+      }
+    }
+
+    // Set border for merged cells
+    let bTopLeft = ['T2', 'D2', 'E2', 'G2', 'I2', 'K2', 'M2', 'O2', 'Q2'];
+    let bTop = ['U2', 'V2', 'W2', 'X2', 'Y2', 'Z2'];
+    let bTopRight = ['AA2', 'F2', 'H2', 'J2', 'L2', 'N2', 'P2', 'R2'];
+    let bBottomRight = ['AA3'];
+    let bBottom = ['U3', 'V3', 'W3', 'X3', 'Y3', 'Z3'];
+    let bBottomLeft = ['T3'];
+    
+    bTopLeft.forEach(function(el) {
+      if (!worksheet[el]) worksheet[el] = { s: {}, v: '', t: 's' };
+      worksheet[el].s = { 
+        border: { 
+          top: { style: 'medium', color: '000000' },
+          left: { style: 'medium', color: '000000' },
+        }, 
+      };
+    });
+    bTop.forEach(function(el) {
+      if (!worksheet[el]) worksheet[el] = { s: {}, v: '', t: 's' };
+      worksheet[el].s = { border: { top: { style: 'medium', color: '000000' },}, };
+    });
+    bTopRight.forEach(function(el) {
+      if (!worksheet[el]) worksheet[el] = { s: {}, v: '', t: 's' };
+      worksheet[el].s = { 
+        border: { 
+          top: { style: 'medium', color: '000000' },
+          right: { style: 'medium', color: '000000' },
+        }, 
+      };
+    });
+    bBottomRight.forEach(function(el) {
+      if (!worksheet[el]) worksheet[el] = { s: {}, v: '', t: 's' };
+      worksheet[el].s = { 
+        border: { 
+          bottom: { style: 'medium', color: '000000' },
+          right: { style: 'medium', color: '000000' },
+        }, 
+      };
+    });
+    bBottom.forEach(function(el) {
+      if (!worksheet[el]) worksheet[el] = { s: {}, v: '', t: 's' };
+      worksheet[el].s = { border: { bottom: { style: 'medium', color: '000000' },}, };
+    });
+    bBottomLeft.forEach(function(el) {
+      if (!worksheet[el]) worksheet[el] = { s: {}, v: '', t: 's' };
+      worksheet[el].s = { 
+        border: { 
+          bottom: { style: 'medium', color: '000000' },
+          left: { style: 'medium', color: '000000' },
+        }, 
+      };
+    });
+
+    // Set color for rank title and align center
+    worksheet['T2'].s.font = { color: { rgb: "FF0000" }, };
+    worksheet['T2'].s.alignment = { vertical: "center", horizontal: "center" };
+
+    // Set align left for B1
+    worksheet['B1'].s.alignment = { vertical: "center", horizontal: "left" };
+    worksheet['B1'].s.font = { sz: '14', };
+
+    // Set width for columns
+    var wscols = []
+    for (let i = 0; i <= noCols; i++) {
+      if (i == 0) {
+        wscols.push({ wch: 2, });
+      } else if (i == 1 || i == 2) {
+        wscols.push({ wch: 10, });
+      } else {
+        wscols.push({ wch: 5, });
+      }
+    }
+
+    worksheet['!cols'] = wscols;
+
+    // Generate workbook
+    const workbook = XLSX.utils.book_new();
+    let sheetName = "Report";
+    workbook.SheetNames.push(sheetName);
+    workbook.Sheets[sheetName] = worksheet;
+
+    // Write to xlsx file with file name
+    XLSX.writeFile(workbook, `${getFirstDayOfCurrentMonth()}.xlsx`);
   }
 
   class RuleOfScore {
@@ -510,14 +678,16 @@ $(document).ready(function () {
     }
 
     getRankColor = function (score) {
-      if (score >= 70 && score <= 95) {
-        return "green"
+      if (score == 100) {
+        return "00B050"
+      } else if (score >= 70 && score <= 95) {
+        return "92D050";
       } else if (score >= 50 && score <= 65) {
-        return "yellow"
+        return "FFFF00";
       } else if (score >= 30 && score <= 45) {
-        return "red"
+        return "FF0000";
       } else if (score >= 0 && score <= 25) {
-        return "black"
+        return "BFBFBF";
       } else {
         // Do nothing
       }
@@ -552,10 +722,6 @@ $(document).ready(function () {
   }
 })
 
-function exportExcelFile(workbook, fileName = "bookName") {
-  return XLSX.writeFile(workbook, `${fileName}.xlsx`);
-}
-
 /**
  * Get month from date string
  * @param   {string}  dateStr  Date string with format YYYY年MM月DD日
@@ -585,4 +751,42 @@ function extractMonth(dateStr) {
   month = month.replace("年", "");
 
   return month;
+}
+
+/**
+ * Convert bytes to other unit KB, MB, GB, TB
+ * @param  {number} bytes
+ */
+function bytesToSize(bytes) {
+  var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  if (bytes == 0) return '0 Byte';
+  var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+  return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+}
+
+/**
+ * Get the first day of month with format MMDD
+ */
+function getFirstDayOfCurrentMonth() {
+  const d = new Date();
+  let year = d.getFullYear();
+  let month = d.getMonth() + 1;
+  month = month.toString().padStart(2, '0');
+  return `${year}${month}01`;
+}
+
+class Logger {
+  constructor(debug) {
+    this.debug = debug;
+  }
+
+  info = function(...data) {
+    if (!this.debug) return;
+    console.log(...data)
+  }
+
+  warn = function(...data) {
+    if (!this.debug) return;
+    console.warn(...data)
+  }
 }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Traffic Score</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/css/bootstrap.css" rel="stylesheet" />
+  <link href="./bootstrap.css" rel="stylesheet" />
 </head>
 
 <body>
@@ -12,7 +12,7 @@
     <div class="content">
       <div class="mb-3">
         <div class="alert alert-danger alert-dismissible fade show message" role="alert" style="display: none;">
-          <strong class="message__text">Maximum files for upload are 6 files. Please decrease your files.</strong>
+          <strong class="message__text">You need to upload 6 files for score analysis.</strong>
         </div>
       </div>
       <div class="mb-3">
@@ -20,14 +20,17 @@
         <input class="form-control file-multiple" type="file" id="formFileMultiple" multiple accept=".xlsx">
       </div>
       <div class="text-center mb-3">
-        <button type="button" class="btn btn-primary mb-3 export-score" id="export-score">Export Score</button>
+        <button type="button" class="btn btn-primary mb-3 export-score" disabled id="export-score">Export Score</button>
       </div>
+      <!-- We will show list files here -->
+      <ul class="files py-5"></ul>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2014-11-29/FileSaver.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/js/bootstrap.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.12.13/xlsx.full.min.js"></script>
-    <script src="./app.js"> </script>
+    <script src="./jquery-3.3.1.min.js"></script>
+    <script src="./FileSaver.js"></script>
+    <script src="./bootstrap.js"></script>
+    <!-- <script src="./xlsx.full.min.js"></script> -->
+    <script src="./xlsx.bundle.js"></script>
+    <script src="./app.min.js"> </script>
 </body>
 
 </html>
