@@ -9,3 +9,5 @@
 - https://stackoverflow.com/questions/24395693/how-to-set-cell-width-when-export-xlsx-files-with-js-xlsx
 - https://www.npmjs.com/package/xlsx-js-style
 - https://www.html-code-generator.com/tools/html-encrypt-decrypt
+- http://www.jsnice.org/
+- https://obfuscator.io/
