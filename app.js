@@ -35,6 +35,15 @@ $(document).ready(function () {
     "TYFCB_NICE": "TYFCB_NICE",
     "CEU_NICE": "CEU_NICE",
     "RECOMMENDATION_NICE": "RECOMMENDATION_NICE",
+
+    "ABSENT_SCORE": "ABSENT_SCORE",
+    "LATE_SCORE": "LATE_SCORE",
+    "REFERRAL_SCORE": "REFERRAL_SCORE",
+    "VISITOR_SCORE": "VISITOR_SCORE",
+    "TYFCB_SCORE": "TYFCB_SCORE",
+    "CEU_SCORE": "CEU_SCORE",
+    "RECOMMENDATION_SCORE": "RECOMMENDATION_SCORE",
+    "TOTAL_SCORE": "TOTAL_SCORE",
   };
   logger = new Logger(DEBUG);
 
@@ -213,6 +222,64 @@ $(document).ready(function () {
       g_members[fullName][KEY.REPORT_DATE_NICE][reportDate][KEY.RECOMMENDATION_NICE] = Number(row[KEY.RECOMMENDATION]);
     }
 
+    // Calculate and add rank score for each member
+    const ruleOfScore = new RuleOfScore(KEY);
+
+    for (const _fullName in g_members) {
+      const member = g_members[_fullName];
+
+      let earliestMonth = member[KEY.REPORT_DATE_NICE];
+
+      const sorted = Object.keys(earliestMonth)
+        .sort()
+        .reduce((accumulator, key) => {
+          accumulator[key] = earliestMonth[key];
+
+          return accumulator;
+        }, {});
+
+      let firstMonth = sorted[Object.keys(sorted)[0]];
+
+      // Using value in column ※1 to calculate rank score
+      let absentTotal = member[KEY.ABSENT_NICE];
+      let absentValRank = absentTotal - firstMonth[KEY.ABSENT_NICE];
+      let lateTotal = member[KEY.LATE_NICE];
+      let lateValRank = lateTotal - firstMonth[KEY.LATE_NICE];
+      let referralTotal = member[KEY.REFERRAL_FINAL];
+      let referralValRank = referralTotal - firstMonth[KEY.REFERRAL_FINAL];
+      let visitorTotal = member[KEY.VISITOR_NICE];
+      let visitorValRank = visitorTotal - firstMonth[KEY.VISITOR_NICE];
+      let tyfcbTotal = member[KEY.TYFCB_NICE];
+      let tyfcbValRank = tyfcbTotal - firstMonth[KEY.TYFCB_NICE];
+      let ceuTotal = member[KEY.CEU_NICE];
+      let ceuValRank = ceuTotal - firstMonth[KEY.CEU_NICE];
+      let recommendationTotal = member[KEY.RECOMMENDATION_NICE];
+      let recommendationValRank = recommendationTotal - firstMonth[KEY.RECOMMENDATION_NICE];
+
+      // Rank of score table
+      let absentScore = ruleOfScore.getScore(KEY.ABSENT, absentValRank);
+      let lateScore = ruleOfScore.getScore(KEY.LATE, lateValRank);
+      let referralScore = ruleOfScore.getScore(KEY.REFERRAL_FINAL, referralValRank / member[KEY.ATTENDANCE_NICE]);
+      let visitorScore = ruleOfScore.getScore(KEY.VISITOR, visitorValRank);
+      let tyfcbScore = ruleOfScore.getScore(KEY.TYFCB, tyfcbValRank);
+      let ceuScore = ruleOfScore.getScore(KEY.CEU, ceuValRank);
+      let recommendationScore = ruleOfScore.getScore(KEY.RECOMMENDATION, recommendationValRank);
+      let totalScore = 0;
+      totalScore = absentScore + lateScore + referralScore + visitorScore + tyfcbScore + ceuScore + recommendationScore;
+
+      // Update current member with scoring values
+      g_members[_fullName][KEY.ABSENT_SCORE] = absentScore;
+      g_members[_fullName][KEY.LATE_SCORE] = lateScore;
+      g_members[_fullName][KEY.REFERRAL_SCORE] = referralScore;
+      g_members[_fullName][KEY.VISITOR_SCORE] = visitorScore;
+      g_members[_fullName][KEY.TYFCB_SCORE] = tyfcbScore;
+      g_members[_fullName][KEY.CEU_SCORE] = ceuScore;
+      g_members[_fullName][KEY.RECOMMENDATION_SCORE] = recommendationScore;
+      g_members[_fullName][KEY.TOTAL_SCORE] = totalScore;
+    }
+
+    g_members = sortObjects(g_members, KEY.TOTAL_SCORE, true, true);
+
     console.log(g_members);
   }
 
@@ -330,8 +397,22 @@ $(document).ready(function () {
         }, {});
 
       let firstMonth = sorted[Object.keys(sorted)[0]];
-      
-      // console.log(Object.keys(sorted)[0], firstMonth);
+
+      // Using value in column ※1 to calculate rank score
+      let absentTotal = member[KEY.ABSENT_NICE];
+      let absentValRank = absentTotal - firstMonth[KEY.ABSENT_NICE];
+      let lateTotal = member[KEY.LATE_NICE];
+      let lateValRank = lateTotal - firstMonth[KEY.LATE_NICE];
+      let referralTotal = member[KEY.REFERRAL_FINAL];
+      let referralValRank = referralTotal - firstMonth[KEY.REFERRAL_FINAL];
+      let visitorTotal = member[KEY.VISITOR_NICE];
+      let visitorValRank = visitorTotal - firstMonth[KEY.VISITOR_NICE];
+      let tyfcbTotal = member[KEY.TYFCB_NICE];
+      let tyfcbValRank = tyfcbTotal - firstMonth[KEY.TYFCB_NICE];
+      let ceuTotal = member[KEY.CEU_NICE];
+      let ceuValRank = ceuTotal - firstMonth[KEY.CEU_NICE];
+      let recommendationTotal = member[KEY.RECOMMENDATION_NICE];
+      let recommendationValRank = recommendationTotal - firstMonth[KEY.RECOMMENDATION_NICE];
 
       row.push(""); // A
       row.push(member[KEY.LAST_NAME_NICE]); // B
@@ -340,44 +421,44 @@ $(document).ready(function () {
       row.push(member[KEY.ATTENDANCE_NICE]); // D
 
       // absent
-      row.push(member[KEY.ABSENT_NICE]); // L = SUM(E:K)
-      row.push(member[KEY.ABSENT_NICE] - firstMonth[KEY.ABSENT_NICE]); // M = L - E
+      row.push(absentTotal);
+      row.push(absentValRank); // Column ※1
 
       // late
-      row.push(member[KEY.LATE_NICE]); // U = SUM(N:T)
-      row.push(member[KEY.LATE_NICE] - firstMonth[KEY.LATE_NICE]); // V = U - N
+      row.push(lateTotal);
+      row.push(lateValRank); // Column ※1
 
       // referral
-      row.push(member[KEY.REFERRAL_FINAL]); // AO = AD + AM
-      row.push(member[KEY.REFERRAL_FINAL] - firstMonth[KEY.REFERRAL_FINAL]); // AP = AE5 - AN5
+      row.push(referralTotal);
+      row.push(referralValRank); // Column ※1
 
       // visitor
-      row.push(member[KEY.VISITOR_NICE]); // AX = SUM(AQ:AW)
-      row.push(member[KEY.VISITOR_NICE] - firstMonth[KEY.VISITOR_NICE]); // AY = AX - AQ
+      row.push(visitorTotal);
+      row.push(visitorValRank); // Column ※1
 
-      // tyfb
-      row.push(member[KEY.TYFCB_NICE]); // BG = SUM(AZ:BF)
-      row.push(member[KEY.TYFCB_NICE] - firstMonth[KEY.TYFCB_NICE]); // BH = BG - AZ
+      // tyfcb
+      row.push(tyfcbTotal);
+      row.push(tyfcbValRank); // Column ※1
 
       // CEU
-      row.push(member[KEY.CEU_NICE]); // BP = SUM(BI:BO)
-      row.push(member[KEY.CEU_NICE] - firstMonth[KEY.CEU_NICE]); // BQ = BP - BI
+      row.push(ceuTotal);
+      row.push(ceuValRank); // Column ※1
 
       // recommendation
-      row.push(member[KEY.RECOMMENDATION_NICE]); // BY = SUM(BR:BX)
-      row.push(member[KEY.RECOMMENDATION_NICE] - firstMonth[KEY.RECOMMENDATION_NICE]); // BZ = BY - BR
+      row.push(recommendationTotal);
+      row.push(recommendationValRank); // Column ※1
 
       // Separate column
       row.push("");
 
-      // Rank of score
-      let absentScore = ruleOfScore.getScore(KEY.ABSENT, member[KEY.ABSENT_NICE]);
-      let lateScore = ruleOfScore.getScore(KEY.LATE, member[KEY.LATE_NICE]);
-      let referralScore = ruleOfScore.getScore(KEY.REFERRAL_FINAL, member[KEY.REFERRAL_FINAL]);
-      let visitorScore = ruleOfScore.getScore(KEY.VISITOR, member[KEY.VISITOR_NICE]);
-      let tyfcbScore = ruleOfScore.getScore(KEY.TYFCB, member[KEY.TYFCB_NICE]);
-      let ceuScore = ruleOfScore.getScore(KEY.CEU, member[KEY.CEU_NICE]);
-      let recommendationScore = ruleOfScore.getScore(KEY.RECOMMENDATION, member[KEY.RECOMMENDATION_NICE]);
+      // Rank of score table
+      let absentScore = ruleOfScore.getScore(KEY.ABSENT, absentValRank);
+      let lateScore = ruleOfScore.getScore(KEY.LATE, lateValRank);
+      let referralScore = ruleOfScore.getScore(KEY.REFERRAL_FINAL, referralValRank / member[KEY.ATTENDANCE_NICE]);
+      let visitorScore = ruleOfScore.getScore(KEY.VISITOR, visitorValRank);
+      let tyfcbScore = ruleOfScore.getScore(KEY.TYFCB, tyfcbValRank);
+      let ceuScore = ruleOfScore.getScore(KEY.CEU, ceuValRank);
+      let recommendationScore = ruleOfScore.getScore(KEY.RECOMMENDATION, recommendationValRank);
 
       row.push(absentScore);
       row.push(lateScore);
@@ -488,6 +569,7 @@ $(document).ready(function () {
           top: { style: 'medium', color: '000000' },
           left: { style: 'medium', color: '000000' },
         }, 
+        alignment: { vertical: "center", horizontal: "center" },
       };
     });
     bTop.forEach(function(el) {
@@ -501,6 +583,7 @@ $(document).ready(function () {
           top: { style: 'medium', color: '000000' },
           right: { style: 'medium', color: '000000' },
         }, 
+        alignment: { vertical: "center", horizontal: "center" },
       };
     });
     bBottomRight.forEach(function(el) {
@@ -558,123 +641,89 @@ $(document).ready(function () {
     XLSX.writeFile(workbook, `${getFirstDayOfCurrentMonth()}.xlsx`);
   }
 
+  // TODO: do this later
+  function generateWorkSheetData() {
+    let wsData = [];
+
+    g_members_sorted.forEach(function(member) {
+
+    });
+
+    return wsData;
+  }
+
   class RuleOfScore {
     constructor(key) {
       this.KEY = key;
     }
-    getScore = function (key, count) {
-      let score = 0;
-      if (key == this.KEY.ABSENT) {
-        switch (count) {
-          case 2:
-            score = 5;
-            break
-          case 1:
-            score = 10;
-            break
-          case 0:
-            score = 15;
-            break
-          case 3:
-          default:
-            score = 0;
-            break
-        }
-      } else if (key == this.KEY.LATE) {
-        switch (count) {
-          case 1:
-            score = 0;
-            break
-          case 0:
-            score = 5;
-            break
-          default:
-            score = 0;
-            break
-        }
-      } else if (key == this.KEY.REFERRAL_FINAL) {
-        switch (count) {
-          case 0.75:
-            score = 5;
-            break
-          case 1:
-            score = 10;
-            break
-          case 1.5:
-            score = 15;
-            break
-          case 2:
-            score = 20;
-            break
-          default:
-            score = 0;
-            break
-        }
-      } else if (key == this.KEY.VISITOR) {
-        switch (count) {
-          case 2:
-            score = 5;
-            break
-          case 4:
-            score = 10;
-            break
-          case 6:
-            score = 15;
-            break
-          case 12:
-            score = 20;
-            break
-          default:
-            score = 0;
-            break
-        }
-      } else if (key == this.KEY.TYFCB) {
-        switch (count) {
-          case 200:
-            score = 5;
-            break
-          case 500:
-            score = 10;
-            break
-          case 1000:
-            score = 15;
-            break
-          default:
-            score = 0;
-            break
-        }
-      } else if (key == this.KEY.CEU) {
-        switch (count) {
-          case 10:
-            score = 5;
-            break
-          case 15:
-            score = 10;
-            break
-          case 20:
-            score = 15;
-            break
-          default:
-            score = 0;
-            break
-        }
-      } else if (key == this.KEY.RECOMMENDATION) {
-        switch (count) {
-          case 1:
-            score = 5;
-            break
-          case 2:
-            score = 10;
-            break
-          default:
-            score = 0;
-            break
-        }
-      } else {
-        // Do nothing
-      }
 
-      return score;
+    getScore = function(type, count) {
+      switch (type) {
+        case KEY.ABSENT:
+          return this.getAbsentScore(count);
+        case KEY.LATE:
+          return this.getLateScore(count);
+        case KEY.REFERRAL_FINAL:
+          return this.getReferralScore(count);
+        case KEY.VISITOR:
+          return this.getVisitorScore(count);
+        case KEY.TYFCB:
+          return this.getTYFCBScore(count);
+        case KEY.CEU:
+          return this.getCEUScore(count);
+        case KEY.RECOMMENDATION:
+          return this.getRecommendationScore(count);
+        default:
+          break;
+      }
+    }
+
+    getAbsentScore = function(count) {
+      if (count >= 3) return 0;
+      if (count == 2) return 5;
+      if (count == 1) return 10;
+      if (count == 0) return 15;
+    }
+
+    getLateScore = function(count) {
+      if (count >= 1) return 0;
+      if (count == 0) return 5;
+    }
+
+    getReferralScore = function(count) {
+      if (count < 0.75) return 0;
+      if (count >= 0.75 && count < 1) return 5;
+      if (count >= 1 && count < 1.5) return 10;
+      if (count >= 1.5 && count < 2) return 15;
+      if (count >= 2) return 20;
+    }
+
+    getVisitorScore = function (count) {
+      if (count < 2) return 0;
+      if (count >= 2 && count < 4) return 5;
+      if (count >= 4 && count < 6) return 10;
+      if (count >= 6 && count < 12) return 15;
+      if (count >= 12) return 20;
+    }
+
+    getTYFCBScore = function(count) {
+      if (count < 200) return 0;
+      if (count >= 200 && count < 500) return 5;
+      if (count >= 500 && count < 1000) return 10;
+      if (count >= 1000) return 15;
+    }
+
+    getCEUScore = function(count) {
+      if (count < 10) return 0;
+      if (count >= 10 && count < 15) return 5;
+      if (count >= 15 && count < 20) return 10;
+      if (count >= 20) return 15;
+    }
+
+    getRecommendationScore = function(count) {
+      if (count == 0) return 0;
+      if (count == 1) return 5;
+      if (count >= 2) return 10;
     }
 
     getRankColor = function (score) {
@@ -691,7 +740,6 @@ $(document).ready(function () {
       } else {
         // Do nothing
       }
-
     }
   }
 
@@ -789,4 +837,53 @@ class Logger {
     if (!this.debug) return;
     console.warn(...data)
   }
+}
+
+/**
+ * Sort object properties (only own properties will be sorted).
+ * @param {object} obj object to sort properties
+ * @param {string|int} sortedBy 1 - sort object properties by specific value.
+ * @param {bool} isNumericSort true - sort object properties as numeric value, false - sort as string value.
+ * @param {bool} reverse false - reverse sorting.
+ * @returns {Array} array of items in [[key,value],[key,value],...] format.
+ */
+function sortProperties(obj, sortedBy, isNumericSort, reverse) {
+  sortedBy = sortedBy || 1; // by default first key
+  isNumericSort = isNumericSort || false; // by default text sort
+  reverse = reverse || false; // by default no reverse
+
+  var reversed = (reverse) ? -1 : 1;
+
+  var sortable = [];
+  for (var key in obj) {
+      if (obj.hasOwnProperty(key)) {
+          sortable.push([key, obj[key]]);
+      }
+  }
+  if (isNumericSort)
+      sortable.sort(function (a, b) {
+          return reversed * (a[1][sortedBy] - b[1][sortedBy]);
+      });
+  else
+      sortable.sort(function (a, b) {
+          var x = a[1][sortedBy].toLowerCase(),
+              y = b[1][sortedBy].toLowerCase();
+          return x < y ? reversed * -1 : x > y ? reversed : 0;
+      });
+  return sortable; // array in format [ [ key1, val1 ], [ key2, val2 ], ... ]
+}
+
+
+function sortObjects(objects, sortedBy, isNumericSort, reverse) {
+  var newObject = {};
+  var sortedArray = sortProperties(objects, sortedBy, isNumericSort, reverse);
+
+  for (const element of sortedArray) {
+      var key = element[0];
+      var value = element[1];
+
+      newObject[key] = value;
+  }
+
+  return newObject;
 }

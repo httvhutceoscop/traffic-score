@@ -11,3 +11,4 @@
 - https://www.html-code-generator.com/tools/html-encrypt-decrypt
 - http://www.jsnice.org/
 - https://obfuscator.io/
+- https://gist.github.com/umidjons/9614157
